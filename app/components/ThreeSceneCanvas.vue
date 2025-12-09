@@ -145,12 +145,13 @@ function createParticles() {
   geometry.setAttribute("velocity", new THREE.BufferAttribute(velocities, 3));
   geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
 
-  // Material - soft circular particles
+  // Material - soft glowing particles using generated texture
   const material = new THREE.PointsMaterial({
-    size: 2,
+    size: 4, // Larger for soft glow
     color: sceneColor.value,
     transparent: true,
     opacity: particleSettings.value.opacity,
+    map: getSoftParticleTexture(), // Use soft texture
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     sizeAttenuation: true,
@@ -158,6 +159,29 @@ function createParticles() {
 
   particles = new THREE.Points(geometry, material);
   scene.add(particles);
+}
+
+/**
+ * Generate a soft radial gradient texture programmatically
+ * This removes the "square" look of default Three.js points
+ */
+function getSoftParticleTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+  gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
+  gradient.addColorStop(0.4, "rgba(255, 255, 255, 0.5)");
+  gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 32, 32);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  return texture;
 }
 
 /**
@@ -175,6 +199,7 @@ function animate() {
 
   const { speed, opacity } = particleSettings.value;
   const energy = props.energyLevel;
+  const time = Date.now() * 0.0005; // Time factor for sin waves
 
   // Get particle positions
   const positions = particles.geometry.attributes.position
@@ -182,25 +207,36 @@ function animate() {
   const velocities = particles.geometry.attributes.velocity
     ?.array as Float32Array;
 
+  // Access original positions if we want to reset/flow around a shape
+  // For now, simpler flow:
+
   if (positions && velocities) {
     for (let i = 0; i < positions.length; i += 3) {
       // ENERGY-DRIVEN movement:
-      // - At energy = 0: multiplier = 0.05 (nearly still)
-      // - At energy = 1: multiplier = 5 (very active)
-      const movementMultiplier = 0.05 + energy * 5;
-
-      positions[i] += velocities[i] * movementMultiplier;
-      positions[i + 1] += velocities[i + 1] * movementMultiplier;
-      positions[i + 2] += velocities[i + 2] * movementMultiplier;
-
-      // ENERGY-DRIVEN orbit rotation:
-      // - At energy = 0: barely rotates
-      // - At energy = 1: rotates much faster
-      const orbitSpeed = speed * (0.1 + energy * 3);
+      // Base gentle flow + energy burst
+      // Spiral flow:
       const x = positions[i];
       const z = positions[i + 2];
-      positions[i] = x * Math.cos(orbitSpeed) - z * Math.sin(orbitSpeed);
-      positions[i + 2] = x * Math.sin(orbitSpeed) + z * Math.cos(orbitSpeed);
+      const dist = Math.sqrt(x * x + z * z);
+
+      // Rotate around Y axis
+      const angleSpeed = (0.002 + energy * 0.01) * (15 / (dist + 0.1)); // Faster near center
+
+      const cosA = Math.cos(angleSpeed);
+      const sinA = Math.sin(angleSpeed);
+
+      positions[i] = x * cosA - z * sinA;
+      positions[i + 2] = x * sinA + z * cosA;
+
+      // Gentle vertical wave
+      positions[i + 1] +=
+        Math.sin(time + dist * 0.5) * 0.02 + (Math.random() - 0.5) * 0.01;
+
+      // Containment (pull back to center if too far)
+      if (dist > 40) {
+        positions[i] *= 0.99;
+        positions[i + 2] *= 0.99;
+      }
     }
 
     particles.geometry.attributes.position.needsUpdate = true;
@@ -211,22 +247,15 @@ function animate() {
   material.color.lerp(sceneColor.value, 0.05);
 
   // ENERGY-DRIVEN opacity:
-  // - At energy = 0: base opacity (dim)
-  // - At energy = 1: much brighter
-  const baseOpacity = opacity * 0.3; // Start dimmer
-  const energyOpacity = energy * opacity * 1.5;
-  material.opacity = Math.min(baseOpacity + energyOpacity, 1);
+  const baseOpacity = opacity * 0.4;
+  const energyOpacity = energy * opacity * 2.0;
+  material.opacity = Math.min(baseOpacity + energyOpacity, 0.9);
 
   // ENERGY-DRIVEN particle size:
-  // - Particles grow when there's voice energy
-  const baseSize = 2;
-  const energySize = energy * 4;
+  // Using material size for global scale
+  const baseSize = 3;
+  const energySize = energy * 6;
   material.size = baseSize + energySize;
-
-  // ENERGY-DRIVEN rotation of entire particle system:
-  // - At energy = 0: barely rotates
-  // - At energy = 1: rotates noticeably
-  particles.rotation.y += 0.0001 + energy * 0.003;
 
   // Render
   renderer.render(scene, camera);

@@ -92,7 +92,10 @@ useHead({
 </script>
 
 <template>
-  <div class="settings-page container container--narrow">
+  <div
+    class="settings-page container container--narrow"
+    :class="{ 'settings-page--kids': settings.kidsMode }"
+  >
     <h1 class="page-title">
       {{ t("الإعدادات", "Settings") }}
     </h1>
@@ -100,6 +103,7 @@ useHead({
     <!-- Appearance Section -->
     <section class="settings-section">
       <h2 class="section-title">
+        <span class="icon">🎨</span>
         {{ t("المظهر", "Appearance") }}
       </h2>
 
@@ -119,22 +123,24 @@ useHead({
               }}
             </p>
           </div>
-          <select
-            id="theme-select"
-            class="setting-select"
-            :value="settings.theme"
-            @change="onThemeChange"
-          >
-            <option
-              v-for="option in themeOptions"
-              :key="option.value"
-              :value="option.value"
+          <div class="select-wrapper">
+            <select
+              id="theme-select"
+              class="setting-select"
+              :value="settings.theme"
+              @change="onThemeChange"
             >
-              {{
-                settings.language === "ar" ? option.label.ar : option.label.en
-              }}
-            </option>
-          </select>
+              <option
+                v-for="option in themeOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{
+                  settings.language === "ar" ? option.label.ar : option.label.en
+                }}
+              </option>
+            </select>
+          </div>
         </div>
 
         <!-- Language -->
@@ -147,22 +153,24 @@ useHead({
               {{ t("لغة واجهة التطبيق", "App interface language") }}
             </p>
           </div>
-          <select
-            id="language-select"
-            class="setting-select"
-            :value="settings.language"
-            @change="onLanguageChange"
-          >
-            <option
-              v-for="option in languageOptions"
-              :key="option.value"
-              :value="option.value"
+          <div class="select-wrapper">
+            <select
+              id="language-select"
+              class="setting-select"
+              :value="settings.language"
+              @change="onLanguageChange"
             >
-              {{
-                settings.language === "ar" ? option.label.ar : option.label.en
-              }}
-            </option>
-          </select>
+              <option
+                v-for="option in languageOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{
+                  settings.language === "ar" ? option.label.ar : option.label.en
+                }}
+              </option>
+            </select>
+          </div>
         </div>
 
         <!-- Font Size -->
@@ -197,10 +205,28 @@ useHead({
       </div>
     </section>
 
+    <!-- Content Preview -->
+    <section class="settings-section">
+      <h2 class="section-title">
+        <span class="icon">👁️</span>
+        {{ t("معاينة النص", "Text Preview") }}
+      </h2>
+
+      <div class="settings-card card">
+        <p
+          class="quran-text font-preview"
+          :style="{ fontSize: `${settings.fontSize}px` }"
+        >
+          بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ
+        </p>
+      </div>
+    </section>
+
     <!-- Effects Section -->
     <section class="settings-section">
       <h2 class="section-title">
-        {{ t("التأثيرات البصرية", "Visual Effects") }}
+        <span class="icon">✨</span>
+        {{ t("التأثيرات", "Effects") }}
       </h2>
 
       <div class="settings-card card">
@@ -219,22 +245,24 @@ useHead({
               }}
             </p>
           </div>
-          <select
-            id="effects-select"
-            class="setting-select"
-            :value="settings.effectsIntensity"
-            @change="onEffectsChange"
-          >
-            <option
-              v-for="option in effectsOptions"
-              :key="option.value"
-              :value="option.value"
+          <div class="select-wrapper">
+            <select
+              id="effects-select"
+              class="setting-select"
+              :value="settings.effectsIntensity"
+              @change="onEffectsChange"
             >
-              {{
-                settings.language === "ar" ? option.label.ar : option.label.en
-              }}
-            </option>
-          </select>
+              <option
+                v-for="option in effectsOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{
+                  settings.language === "ar" ? option.label.ar : option.label.en
+                }}
+              </option>
+            </select>
+          </div>
         </div>
 
         <!-- Show Legend -->
@@ -257,6 +285,7 @@ useHead({
             :class="{ 'toggle-btn--active': settings.showLegend }"
             :aria-pressed="settings.showLegend"
             @click="toggleLegend"
+            aria-label="Toggle Legend"
           >
             <span class="toggle-track">
               <span class="toggle-thumb"></span>
@@ -269,6 +298,7 @@ useHead({
     <!-- Mode Section -->
     <section class="settings-section">
       <h2 class="section-title">
+        <span class="icon">🚀</span>
         {{ t("الأوضاع", "Modes") }}
       </h2>
 
@@ -282,8 +312,8 @@ useHead({
             <p class="setting-description">
               {{
                 t(
-                  "نص أكبر وواجهة مبسطة",
-                  "Larger text and simplified interface"
+                  "نص أكبر وواجهة مبسطة وملونة",
+                  "Larger text and playful, colorful interface"
                 )
               }}
             </p>
@@ -293,6 +323,7 @@ useHead({
             :class="{ 'toggle-btn--active': settings.kidsMode }"
             :aria-pressed="settings.kidsMode"
             @click="toggleKidsMode"
+            aria-label="Toggle Kids Mode"
           >
             <span class="toggle-track">
               <span class="toggle-thumb"></span>
@@ -320,6 +351,7 @@ useHead({
             :class="{ 'toggle-btn--active': settings.showCamera }"
             :aria-pressed="settings.showCamera"
             @click="toggleCamera"
+            aria-label="Toggle Camera"
           >
             <span class="toggle-track">
               <span class="toggle-thumb"></span>
@@ -334,7 +366,7 @@ useHead({
       <div class="settings-card card settings-card--danger">
         <div class="setting-row">
           <div class="setting-info">
-            <label class="setting-label">
+            <label class="setting-label text-error">
               {{ t("إعادة تعيين الإعدادات", "Reset Settings") }}
             </label>
             <p class="setting-description">
@@ -346,26 +378,10 @@ useHead({
               }}
             </p>
           </div>
-          <button class="btn btn--secondary" @click="confirmReset">
+          <button class="btn btn--danger-outline" @click="confirmReset">
             {{ t("إعادة تعيين", "Reset") }}
           </button>
         </div>
-      </div>
-    </section>
-
-    <!-- Font Preview -->
-    <section class="settings-section">
-      <h2 class="section-title">
-        {{ t("معاينة النص", "Text Preview") }}
-      </h2>
-
-      <div class="settings-card card">
-        <p
-          class="quran-text font-preview"
-          :style="{ fontSize: `${settings.fontSize}px` }"
-        >
-          بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ
-        </p>
       </div>
     </section>
   </div>
@@ -373,8 +389,8 @@ useHead({
 
 <style scoped>
 .settings-page {
-  padding-top: var(--space-4);
-  padding-bottom: var(--space-8);
+  padding-top: var(--space-8);
+  padding-bottom: var(--space-12);
 }
 
 .page-title {
@@ -385,21 +401,29 @@ useHead({
 
 /* Sections */
 .settings-section {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-8);
 }
 
 .section-title {
   font-size: var(--text-lg);
   margin-bottom: var(--space-3);
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.icon {
+  font-size: 1.25rem;
 }
 
 .settings-card {
-  padding: var(--space-4);
+  padding: var(--space-2) var(--space-5);
 }
 
 .settings-card--danger {
-  border-color: var(--highlight-error);
+  border: 1px solid var(--highlight-error);
+  background-color: rgba(239, 68, 68, 0.05);
 }
 
 /* Setting Row */
@@ -408,7 +432,7 @@ useHead({
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-3) 0;
+  padding: var(--space-5) 0;
 }
 
 .setting-row:not(:last-child) {
@@ -420,6 +444,7 @@ useHead({
 }
 
 .setting-label {
+  font-size: var(--text-base);
   font-weight: 600;
   display: block;
   margin-bottom: var(--space-1);
@@ -431,17 +456,42 @@ useHead({
   margin: 0;
 }
 
+.text-error {
+  color: var(--highlight-error);
+}
+
 /* Select Input */
+.select-wrapper {
+  position: relative;
+}
+
 .setting-select {
+  appearance: none;
   min-width: 140px;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-8) var(--space-2) var(--space-4);
   font-family: var(--font-ui);
   font-size: var(--text-sm);
   border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--border-radius-lg);
   background-color: var(--bg-secondary);
   color: var(--text-primary);
   cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  transition: all var(--transition-fast);
+}
+
+[dir="rtl"] .setting-select {
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-8);
+  background-position: left 12px center;
+}
+
+.setting-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
 }
 
 /* Range Input */
@@ -449,7 +499,7 @@ useHead({
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-width: 160px;
+  min-width: 180px;
 }
 
 .setting-range {
@@ -463,38 +513,48 @@ useHead({
 
 .setting-range::-webkit-slider-thumb {
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--color-primary);
   cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform var(--transition-fast);
+}
+
+.setting-range::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
 }
 
 .range-value {
   font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-secondary);
+  font-weight: 600;
+  color: var(--text-primary);
   min-width: 50px;
-  text-align: right;
+  text-align: center;
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-/* Toggle Button */
+/* Toggle Button (iOS Style) */
 .toggle-btn {
   background: none;
   border: none;
   cursor: pointer;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .toggle-track {
   display: block;
-  width: 48px;
+  width: 50px;
   height: 28px;
   border-radius: var(--border-radius-full);
   background-color: var(--bg-tertiary);
-  border: 2px solid var(--border-color);
   position: relative;
-  transition: all var(--transition-fast);
+  transition: background-color 0.3s ease;
+  border: 2px solid transparent;
 }
 
 .toggle-thumb {
@@ -504,18 +564,17 @@ useHead({
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background-color: var(--text-muted);
-  transition: all var(--transition-fast);
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .toggle-btn--active .toggle-track {
-  background-color: var(--color-primary);
-  border-color: var(--color-primary);
+  background-color: var(--color-success, #22c55e);
 }
 
 .toggle-btn--active .toggle-thumb {
-  left: 22px;
-  background-color: white;
+  transform: translateX(22px);
 }
 
 /* Font Preview */
@@ -523,6 +582,50 @@ useHead({
   text-align: center;
   padding: var(--space-4);
   margin: 0;
+  color: var(--text-primary);
+}
+
+/* Danger Button */
+.btn--danger-outline {
+  padding: var(--space-2) var(--space-4);
+  background: transparent;
+  border: 1px solid var(--highlight-error);
+  color: var(--highlight-error);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.btn--danger-outline:hover {
+  background: var(--highlight-error);
+  color: white;
+}
+
+/* Kids Mode Overrides */
+.settings-page--kids {
+  --color-primary: #f39c12;
+}
+
+.settings-page--kids .page-title {
+  color: #d35400;
+  font-family: var(--font-ui);
+  font-weight: 800;
+}
+
+.settings-page--kids .section-title {
+  color: #8e44ad;
+  font-weight: 700;
+}
+
+.settings-page--kids .settings-card {
+  border: 3px solid #f1c40f;
+  border-radius: 1.5rem;
+  background: #fff;
+}
+
+.settings-page--kids .toggle-btn--active .toggle-track {
+  background-color: #2ecc71;
 }
 
 /* Responsive */
@@ -533,10 +636,16 @@ useHead({
     gap: var(--space-3);
   }
 
+  .select-wrapper,
   .setting-select,
   .setting-range-container {
     width: 100%;
     min-width: auto;
+  }
+
+  .setting-row > button.btn,
+  .toggle-btn {
+    align-self: flex-end;
   }
 }
 </style>

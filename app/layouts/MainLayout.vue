@@ -9,6 +9,11 @@
 const { settings, toggleTheme, toggleLanguage, t, isRTL, isDarkMode } =
   useAppSettings();
 
+const route = useRoute();
+
+// Check if we are on home page
+const isHome = computed(() => route.path === "/");
+
 // Navigation items
 const navItems = computed(() => [
   {
@@ -35,14 +40,14 @@ const navItems = computed(() => [
 </script>
 
 <template>
-  <div class="layout">
+  <div class="layout" :class="{ 'layout--home': isHome }">
     <!-- Skip Link for Accessibility -->
     <a href="#main-content" class="skip-link">
       {{ t("انتقل إلى المحتوى", "Skip to content") }}
     </a>
 
     <!-- Header -->
-    <header class="header">
+    <header class="header" :class="{ 'header--home': isHome }">
       <div class="container flex-between">
         <!-- Logo & App Name -->
         <NuxtLink to="/" class="header-brand">
@@ -97,7 +102,7 @@ const navItems = computed(() => [
     </main>
 
     <!-- Footer -->
-    <footer class="footer">
+    <footer class="footer" :class="{ 'footer--home': isHome }">
       <div class="container">
         <p class="footer-text">
           {{
@@ -131,6 +136,7 @@ const navItems = computed(() => [
   background-color: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
   padding: var(--space-3) 0;
+  transition: all var(--transition-normal);
 }
 
 .header-brand {
@@ -193,10 +199,46 @@ const navItems = computed(() => [
   gap: var(--space-2);
 }
 
+/* Home Page Header Overrides */
+.header--home {
+  background-color: #0a0f1a;
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.header--home .header-title {
+  color: #fff;
+}
+
+.header--home .nav-link {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.header--home .nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.header--home .nav-link.router-link-active {
+  background-color: #d4af37;
+  color: #000;
+}
+
+.header--home .btn--ghost {
+  color: #fff;
+}
+
+.header--home .btn--ghost:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
 /* Main Content */
 .main {
   flex: 1;
   padding: var(--space-8) 0;
+}
+
+.layout--home .main {
+  padding-top: 0;
 }
 
 /* Footer */
@@ -207,16 +249,29 @@ const navItems = computed(() => [
   background-color: var(--bg-secondary);
 }
 
+.footer--home {
+  background-color: #0f1419;
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
 .footer-text {
   color: var(--text-secondary);
   font-size: var(--text-sm);
   margin-bottom: var(--space-2);
 }
 
+.footer--home .footer-text {
+  color: rgba(255, 255, 255, 0.6);
+}
+
 .footer-copyright {
   color: var(--text-muted);
   font-size: var(--text-xs);
   margin-bottom: 0;
+}
+
+.footer--home .footer-copyright {
+  color: rgba(255, 255, 255, 0.4);
 }
 
 /* Mobile Responsive */
@@ -231,6 +286,11 @@ const navItems = computed(() => [
     padding: var(--space-2) var(--space-4);
     justify-content: space-around;
     z-index: var(--z-sticky);
+  }
+
+  .header--home .header-nav {
+    background-color: #0f1419;
+    border-top-color: rgba(255, 255, 255, 0.1);
   }
 
   .nav-label {

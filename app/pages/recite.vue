@@ -277,7 +277,13 @@ useHead({
 </script>
 
 <template>
-  <div class="recite-page">
+  <div
+    class="recite-page"
+    :class="{
+      'recite-page--active': session.isActive.value,
+      'recite-page--kids': settings.kidsMode,
+    }"
+  >
     <!-- Three.js Background Effects -->
     <ThreeSceneCanvas
       :is-active="session.isActive.value"
@@ -286,13 +292,15 @@ useHead({
       :tajweed-score="session.tajweedScore.value"
     />
 
-    <div class="recite-content container">
-      <!-- Header Bar -->
-      <header class="recite-header">
-        <div class="surah-selector">
-          <label for="surah-select" class="sr-only">
+    <div class="recite-layout">
+      <!-- Sidebar (Desktop) -->
+      <aside class="recite-sidebar">
+        <!-- Surah Selector Card -->
+        <div class="sidebar-card">
+          <h3 class="sidebar-title">
+            <span class="sidebar-icon">📖</span>
             {{ t("اختر السورة", "Select Surah") }}
-          </label>
+          </h3>
           <select
             id="surah-select"
             class="surah-select"
@@ -305,66 +313,96 @@ useHead({
               :key="surah.number"
               :value="surah.number"
             >
-              {{ surah.number }}. {{ surah.nameArabic }} - {{ surah.name }}
+              {{ surah.number }}. {{ surah.nameArabic }} ({{ surah.name }})
             </option>
           </select>
         </div>
 
-        <div class="ayah-navigation" v-if="session.isActive.value">
-          <button
-            class="btn btn--ghost btn--icon"
-            :disabled="session.currentAyahIndex.value === 0"
-            @click="handlePrevAyah"
-          >
-            ←
-          </button>
-          <span class="ayah-indicator">
-            {{ t("الآية", "Ayah") }} {{ session.currentAyahNumber.value }} /
-            {{ currentSurah?.ayahCount }}
-          </span>
-          <button
-            class="btn btn--ghost btn--icon"
-            :disabled="
-              session.currentAyahIndex.value >=
-              (currentSurah?.ayahCount ?? 1) - 1
-            "
-            @click="handleNextAyah"
-          >
-            →
-          </button>
-        </div>
+        <!-- Session Info Card -->
+        <div class="sidebar-card" v-if="session.isActive.value">
+          <h3 class="sidebar-title">
+            <span class="sidebar-icon">📊</span>
+            {{ t("معلومات الجلسة", "Session Info") }}
+          </h3>
+          <div class="session-stats">
+            <div class="stat-item">
+              <span class="stat-label">{{ t("الآية", "Ayah") }}</span>
+              <span class="stat-value"
+                >{{ session.currentAyahNumber.value }} /
+                {{ currentSurah?.ayahCount }}</span
+              >
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">{{ t("الكلمة", "Word") }}</span>
+              <span class="stat-value"
+                >{{ session.currentWordIndex.value + 1 }} /
+                {{ currentWordCount }}</span
+              >
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">{{ t("النتيجة", "Score") }}</span>
+              <span class="stat-value stat-value--score"
+                >{{ Math.round(session.tajweedScore.value * 100) }}%</span
+              >
+            </div>
+          </div>
 
-        <!-- Mic Status Indicator -->
-        <div class="mic-status" v-if="session.isActive.value">
-          <span
-            class="mic-indicator"
-            :class="{
-              'mic-indicator--active': media.isMicActive.value,
-              'mic-indicator--error': media.error.value,
-            }"
-          >
-            {{ media.isMicActive.value ? "🎙️" : "🔇" }}
-          </span>
-
-          <!-- Volume Level Bar -->
-          <div class="volume-bar" v-if="media.isMicActive.value">
-            <div
-              class="volume-bar-fill"
-              :style="{ width: `${audio.volumeLevel.value * 100}%` }"
-            ></div>
+          <!-- Volume Indicator -->
+          <div class="volume-indicator" v-if="media.isMicActive.value">
+            <span class="volume-label">
+              <span
+                class="mic-dot"
+                :class="{ 'mic-dot--active': audio.volumeLevel.value > 0.1 }"
+              ></span>
+              {{ t("مستوى الصوت", "Volume") }}
+            </span>
+            <div class="volume-bar-lg">
+              <div
+                class="volume-bar-lg-fill"
+                :style="{ width: `${audio.volumeLevel.value * 100}%` }"
+              ></div>
+            </div>
           </div>
         </div>
-      </header>
 
-      <!-- Main Quran Display -->
+        <!-- Legend Card -->
+        <div class="sidebar-card sidebar-card--legend" v-if="showLegend">
+          <h3 class="sidebar-title">
+            <span class="sidebar-icon">🎨</span>
+            {{ t("دليل الألوان", "Color Guide") }}
+          </h3>
+          <TajweedLegend />
+        </div>
+      </aside>
+
+      <!-- Main Content -->
       <main class="recite-main">
-        <div class="quran-container">
-          <!-- Surah Name -->
-          <h2 class="surah-title" v-if="currentSurah">
-            سورة {{ currentSurah.nameArabic }}
-          </h2>
+        <!-- Quran Display Card -->
+        <div class="quran-card">
+          <!-- Surah Header -->
+          <header class="quran-header" v-if="currentSurah">
+            <h2 class="surah-title">
+              <span class="surah-title-ar"
+                >سورة {{ currentSurah.nameArabic }}</span
+              >
+              <span class="surah-title-en">Surah {{ currentSurah.name }}</span>
+            </h2>
+            <div class="surah-meta">
+              <span
+                >{{ currentSurah.ayahCount }} {{ t("آيات", "verses") }}</span
+              >
+              <span class="meta-dot">•</span>
+              <span>{{
+                currentSurah.number === 1
+                  ? t("مكية", "Meccan")
+                  : currentSurah.number > 20
+                  ? t("مكية", "Meccan")
+                  : t("مدنية", "Medinan")
+              }}</span>
+            </div>
+          </header>
 
-          <!-- Bismillah (if not Al-Fatihah or At-Tawbah) -->
+          <!-- Bismillah -->
           <p
             v-if="
               currentSurah &&
@@ -376,8 +414,34 @@ useHead({
             بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ
           </p>
 
-          <!-- Ayat Display -->
-          <div class="ayat-container">
+          <!-- Ayah Navigation (during session) -->
+          <div class="ayah-nav" v-if="session.isActive.value">
+            <button
+              class="ayah-nav-btn"
+              :disabled="session.currentAyahIndex.value === 0"
+              @click="handlePrevAyah"
+            >
+              <span class="nav-arrow">→</span>
+              {{ t("السابقة", "Previous") }}
+            </button>
+            <span class="ayah-badge">
+              {{ t("الآية", "Ayah") }} {{ session.currentAyahNumber.value }}
+            </span>
+            <button
+              class="ayah-nav-btn"
+              :disabled="
+                session.currentAyahIndex.value >=
+                (currentSurah?.ayahCount ?? 1) - 1
+              "
+              @click="handleNextAyah"
+            >
+              {{ t("التالية", "Next") }}
+              <span class="nav-arrow">←</span>
+            </button>
+          </div>
+
+          <!-- Quran Text Display -->
+          <div class="quran-text-wrapper">
             <QuranTextDisplay
               v-if="currentAyah"
               :ayah-text="currentAyah.text"
@@ -388,8 +452,8 @@ useHead({
               :font-size="settings.fontSize"
             />
 
-            <!-- Empty state -->
             <div v-else class="empty-state">
+              <span class="empty-icon">📖</span>
               <p>{{ t("لا توجد آيات لعرضها", "No ayat to display") }}</p>
             </div>
           </div>
@@ -397,33 +461,29 @@ useHead({
           <!-- Error Message -->
           <div
             v-if="media.error.value || audio.error.value"
-            class="error-message"
+            class="error-banner"
           >
+            <span class="error-icon">⚠️</span>
             {{ media.error.value || audio.error.value }}
           </div>
         </div>
 
-        <!-- Legend Panel -->
-        <aside v-if="showLegend" class="legend-panel">
-          <TajweedLegend />
-        </aside>
+        <!-- Controls Footer -->
+        <footer class="controls-footer">
+          <RecitationControls
+            :is-active="session.isActive.value"
+            :is-paused="session.isPaused.value"
+            :mic-enabled="media.isMicActive.value"
+            :camera-enabled="media.isCameraActive.value"
+            @start="handleStart"
+            @stop="handleStop"
+            @pause="handlePause"
+            @resume="handleResume"
+            @toggle-mic="handleToggleMic"
+            @toggle-camera="handleToggleCamera"
+          />
+        </footer>
       </main>
-
-      <!-- Controls -->
-      <footer class="recite-footer">
-        <RecitationControls
-          :is-active="session.isActive.value"
-          :is-paused="session.isPaused.value"
-          :mic-enabled="media.isMicActive.value"
-          :camera-enabled="media.isCameraActive.value"
-          @start="handleStart"
-          @stop="handleStop"
-          @pause="handlePause"
-          @resume="handleResume"
-          @toggle-mic="handleToggleMic"
-          @toggle-camera="handleToggleCamera"
-        />
-      </footer>
     </div>
 
     <!-- Session Summary Modal -->
@@ -438,36 +498,60 @@ useHead({
 </template>
 
 <style scoped>
+/* ==========================================
+   Recite Page - Polished Layout
+   ========================================== */
 .recite-page {
-  min-height: calc(100vh - 200px);
+  min-height: calc(100vh - 80px);
   position: relative;
-  display: flex;
-  flex-direction: column;
 }
 
-.recite-content {
+/* ==========================================
+   Layout
+   ========================================== */
+.recite-layout {
   position: relative;
   z-index: 1;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 300px 1fr;
   gap: var(--space-6);
-  padding-top: var(--space-4);
-  padding-bottom: var(--space-4);
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--space-6);
+  min-height: calc(100vh - 120px);
 }
 
-/* Header */
-.recite-header {
+/* ==========================================
+   Sidebar
+   ========================================== */
+.recite-sidebar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--space-4);
 }
 
-.surah-selector {
-  flex: 1;
-  max-width: 400px;
+.sidebar-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-xl);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-4);
+}
+
+.sidebar-icon {
+  font-size: 1.1rem;
 }
 
 .surah-select {
@@ -477,9 +561,20 @@ useHead({
   font-size: var(--text-base);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-lg);
-  background-color: var(--bg-card);
+  background-color: var(--bg-secondary);
   color: var(--text-primary);
   cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.surah-select:hover:not(:disabled) {
+  border-color: var(--color-primary);
+}
+
+.surah-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
 }
 
 .surah-select:disabled {
@@ -487,48 +582,71 @@ useHead({
   cursor: not-allowed;
 }
 
-.ayah-navigation {
+/* Session Stats */
+.session-stats {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-3);
 }
 
-.ayah-indicator {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  min-width: 100px;
-  text-align: center;
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-/* Mic Status */
-.mic-status {
+.stat-label {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.stat-value {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stat-value--score {
+  color: var(--highlight-correct);
+}
+
+/* Volume Indicator */
+.volume-indicator {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-color);
+}
+
+.volume-label {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
 }
 
-.mic-indicator {
-  font-size: 1.25rem;
-  opacity: 0.5;
+.mic-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  transition: all var(--transition-fast);
 }
 
-.mic-indicator--active {
-  opacity: 1;
+.mic-dot--active {
+  background-color: var(--highlight-correct);
+  box-shadow: 0 0 8px var(--highlight-correct);
 }
 
-.mic-indicator--error {
-  color: var(--highlight-error);
-}
-
-.volume-bar {
-  width: 60px;
+.volume-bar-lg {
   height: 8px;
   background-color: var(--bg-tertiary);
   border-radius: var(--border-radius-full);
   overflow: hidden;
 }
 
-.volume-bar-fill {
+.volume-bar-lg-fill {
   height: 100%;
   background: linear-gradient(
     90deg,
@@ -536,56 +654,153 @@ useHead({
     var(--color-primary)
   );
   transition: width 0.1s ease;
+  border-radius: var(--border-radius-full);
 }
 
-/* Main Content */
+/* ==========================================
+   Main Content Area
+   ========================================== */
 .recite-main {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 280px;
-  gap: var(--space-6);
-  align-items: start;
-}
-
-.quran-container {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-6);
+}
+
+.quran-card {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-xl);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-md);
+}
+
+/* Surah Header */
+.quran-header {
+  text-align: center;
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .surah-title {
-  text-align: center;
-  font-family: var(--font-quran);
-  font-size: var(--text-3xl);
-  color: var(--color-primary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   margin: 0;
 }
 
-.bismillah {
-  text-align: center;
-  font-size: 1.5rem !important;
-  margin: 0;
-  padding: var(--space-4);
+.surah-title-ar {
+  font-family: var(--font-quran);
+  font-size: var(--text-3xl);
+  font-weight: 400;
+  color: var(--color-primary);
+}
+
+.surah-title-en {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.surah-meta {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
   color: var(--text-secondary);
 }
 
-.ayat-container {
-  flex: 1;
+.meta-dot {
+  opacity: 0.5;
 }
 
-.legend-panel {
-  position: sticky;
-  top: calc(var(--space-16) + var(--space-4));
-}
-
-/* Footer */
-.recite-footer {
-  margin-top: auto;
-}
-
-/* Error Message */
-.error-message {
+/* Bismillah */
+.bismillah {
   text-align: center;
+  font-size: 1.5rem !important;
+  padding: var(--space-4);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-4);
+}
+
+/* Ayah Navigation */
+.ayah-nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.ayah-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ayah-nav-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.ayah-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nav-arrow {
+  font-size: var(--text-lg);
+}
+
+.ayah-badge {
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--border-radius-full);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* Quran Text */
+.quran-text-wrapper {
+  min-height: 200px;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: var(--space-12);
+  color: var(--text-muted);
+}
+
+.empty-icon {
+  display: block;
+  font-size: 3rem;
+  margin-bottom: var(--space-4);
+  opacity: 0.5;
+}
+
+/* Error Banner */
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
   padding: var(--space-3);
   background-color: rgba(239, 68, 68, 0.1);
   border: 1px solid var(--highlight-error);
@@ -594,42 +809,172 @@ useHead({
   font-size: var(--text-sm);
 }
 
-/* Empty state */
-.empty-state {
-  text-align: center;
-  padding: var(--space-12);
-  color: var(--text-muted);
+.error-icon {
+  font-size: var(--text-base);
 }
 
-/* Responsive */
+/* Controls Footer */
+.controls-footer {
+  margin-top: auto;
+}
+
+/* ==========================================
+   Kids Mode Enhancements
+   ========================================== */
+.recite-page--kids .surah-title-ar {
+  font-size: var(--text-4xl);
+}
+
+.recite-page--kids .quran-card {
+  padding: var(--space-10);
+}
+
+.recite-page--kids .ayah-badge {
+  font-size: var(--text-lg);
+  padding: var(--space-3) var(--space-5);
+}
+
+/* ==========================================
+   Responsive
+   ========================================== */
 @media (max-width: 1024px) {
-  .recite-main {
+  .recite-layout {
     grid-template-columns: 1fr;
+    padding: var(--space-4);
   }
 
-  .legend-panel {
-    position: relative;
-    top: 0;
-    order: -1;
+  .recite-sidebar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    order: 1;
+  }
+
+  .sidebar-card {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .sidebar-card--legend {
+    width: 100%;
+  }
+
+  .recite-main {
+    order: 0;
   }
 }
 
 @media (max-width: 768px) {
-  .recite-header {
+  .recite-layout {
+    gap: var(--space-4);
+  }
+
+  .recite-sidebar {
     flex-direction: column;
-    align-items: stretch;
   }
 
-  .surah-selector {
-    max-width: none;
+  .sidebar-card {
+    min-width: auto;
   }
 
-  .ayah-navigation {
-    justify-content: center;
+  .quran-card {
+    padding: var(--space-4);
   }
 
-  .mic-status {
-    justify-content: center;
+  .surah-title-ar {
+    font-size: var(--text-2xl);
   }
+
+  .ayah-nav {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .ayah-nav-btn {
+    font-size: var(--text-xs);
+    padding: var(--space-2) var(--space-3);
+  }
+}
+/* ==========================================
+   Kids Mode Overrides
+   ========================================== */
+.recite-page--kids {
+  --color-primary: #8e44ad; /* Playful Purple */
+  --color-primary-light: #9b59b6;
+  --highlight-correct: #27ae60; /* Bright Green */
+  --text-primary: #2c3e50;
+  --bg-card: #fff;
+  --border-radius-xl: 2rem;
+  --border-radius-lg: 1.5rem;
+}
+
+.recite-page--kids .recite-sidebar .sidebar-card {
+  border: 2px solid #f1c40f; /* Yellow Border */
+  background: #fffdf5; /* Warm background */
+  box-shadow: 0 8px 16px rgba(241, 196, 15, 0.15);
+}
+
+.recite-page--kids .sidebar-title {
+  color: #e67e22; /* Carrot Orange */
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.recite-page--kids .surah-select {
+  border: 2px solid #8e44ad;
+  color: #8e44ad;
+  font-weight: 600;
+}
+
+.recite-page--kids .stat-item {
+  background: #fff;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--border-radius-lg);
+  margin-bottom: var(--space-2);
+}
+
+.recite-page--kids .stat-value--score {
+  color: #27ae60;
+  font-size: 1.25rem;
+}
+
+.recite-page--kids .quran-card {
+  border: 4px solid #8e44ad;
+  box-shadow: 0 12px 24px rgba(142, 68, 173, 0.1);
+  background-image: radial-gradient(
+      circle at top right,
+      rgba(241, 196, 15, 0.05),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at bottom left,
+      rgba(142, 68, 173, 0.05),
+      transparent 30%
+    );
+}
+
+.recite-page--kids .surah-title-ar {
+  color: #8e44ad;
+  text-shadow: 2px 2px 0px rgba(142, 68, 173, 0.1);
+  transform: scale(1.1);
+}
+
+.recite-page--kids .ayah-badge {
+  background: linear-gradient(135deg, #f1c40f, #f39c12);
+  color: #fff;
+  font-size: 1.1rem;
+  padding: 0.5rem 1.5rem;
+  border: 2px solid #fff;
+  box-shadow: 0 4px 8px rgba(243, 156, 18, 0.3);
+}
+
+.recite-page--kids .ayah-nav-btn {
+  border: 2px solid #e1e1e1;
+  font-weight: 700;
+}
+
+.recite-page--kids .ayah-nav-btn:hover:not(:disabled) {
+  background: #8e44ad;
+  border-color: #8e44ad;
+  transform: scale(1.05);
 }
 </style>

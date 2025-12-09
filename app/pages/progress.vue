@@ -130,43 +130,78 @@ useHead({
 </script>
 
 <template>
-  <div class="progress-page container">
-    <h1 class="page-title">
-      {{ t("سجل التلاوات", "Recitation History") }}
-    </h1>
+  <div
+    class="progress-page container"
+    :class="{ 'progress-page--kids': settings.kidsMode }"
+  >
+    <header class="progress-header">
+      <h1 class="page-title">
+        {{ t("سجل التلاوات", "Recitation History") }}
+      </h1>
+      <p class="page-subtitle">
+        {{
+          t(
+            "تتبع تقدمك وتحسنك في التلاوة",
+            "Track your progress and improvement over time"
+          )
+        }}
+      </p>
+    </header>
 
     <!-- Overall Stats -->
     <section v-if="overallStats" class="stats-overview">
       <div class="stats-grid">
-        <div class="stat-card">
-          <span class="stat-icon">📊</span>
-          <span class="stat-value">{{ overallStats.totalSessions }}</span>
-          <span class="stat-label">{{ t("جلسة", "Sessions") }}</span>
+        <!-- Average Score Card (Featured) -->
+        <div class="stat-card stat-card--featured">
+          <div class="circular-chart-wrapper">
+            <svg viewBox="0 0 36 36" class="circular-chart">
+              <path
+                class="circle-bg"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+              <path
+                class="circle"
+                :stroke-dasharray="overallStats.avgScore + ', 100'"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                :style="{ stroke: getScoreColor(overallStats.avgScore) }"
+              />
+            </svg>
+            <div class="circular-text">
+              <span class="circular-value">{{ overallStats.avgScore }}%</span>
+              <span class="circular-label">{{
+                t("متوسط الدرجة", "Avg Score")
+              }}</span>
+            </div>
+          </div>
         </div>
 
-        <div class="stat-card">
-          <span class="stat-icon">🎯</span>
-          <span
-            class="stat-value"
-            :style="{ color: getScoreColor(overallStats.avgScore) }"
-          >
-            {{ overallStats.avgScore }}%
-          </span>
-          <span class="stat-label">{{ t("متوسط الدرجة", "Avg Score") }}</span>
-        </div>
+        <!-- Metric Cards -->
+        <div class="stats-metrics-col">
+          <div class="stat-card">
+            <div class="stat-icon-bg">📊</div>
+            <div class="stat-content">
+              <span class="stat-value">{{ overallStats.totalSessions }}</span>
+              <span class="stat-label">{{ t("جلسة", "Sessions") }}</span>
+            </div>
+          </div>
 
-        <div class="stat-card">
-          <span class="stat-icon">📖</span>
-          <span class="stat-value">{{ overallStats.totalWords }}</span>
-          <span class="stat-label">{{ t("كلمة", "Words") }}</span>
-        </div>
+          <div class="stat-card">
+            <div class="stat-icon-bg">📖</div>
+            <div class="stat-content">
+              <span class="stat-value">{{ overallStats.totalWords }}</span>
+              <span class="stat-label">{{ t("كلمة", "Words") }}</span>
+            </div>
+          </div>
 
-        <div class="stat-card">
-          <span class="stat-icon">✅</span>
-          <span class="stat-value" style="color: var(--highlight-correct)">
-            {{ overallStats.accuracy }}%
-          </span>
-          <span class="stat-label">{{ t("الدقة", "Accuracy") }}</span>
+          <div class="stat-card">
+            <div class="stat-icon-bg">✅</div>
+            <div class="stat-content">
+              <span class="stat-value" style="color: var(--highlight-correct)">
+                {{ overallStats.accuracy }}%
+              </span>
+              <span class="stat-label">{{ t("الدقة", "Accuracy") }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -199,70 +234,62 @@ useHead({
       <!-- Sessions Grid -->
       <div v-else class="sessions-list">
         <article
-          v-for="session in sessions"
+          v-for="(session, index) in sessions"
           :key="session.id"
           class="session-card card"
+          :style="{ animationDelay: `${index * 100}ms` }"
         >
           <div class="session-header">
-            <div class="session-surah">
-              <span class="surah-name">سورة {{ session.surahName }}</span>
-              <span class="ayah-range">
-                {{ t("الآيات", "Ayat") }} {{ session.ayahRange[0] }}-{{
-                  session.ayahRange[1]
-                }}
+            <div class="session-info">
+              <span class="session-date">
+                {{ formatDate(session.timestamp) }}
               </span>
+              <div class="session-surah">
+                <span class="surah-name">سورة {{ session.surahName }}</span>
+                <span class="ayah-range">
+                  {{ t("الآيات", "Ayat") }} {{ session.ayahRange[0] }}-{{
+                    session.ayahRange[1]
+                  }}
+                </span>
+              </div>
             </div>
-            <div
-              class="session-score"
-              :style="{ color: getScoreColor(session.overallScore) }"
-            >
-              {{ session.overallScore }}%
+            <div class="session-meta">
+              <div
+                class="score-badge"
+                :style="{
+                  backgroundColor: getScoreColor(session.overallScore),
+                  color: '#fff',
+                }"
+              >
+                {{ session.overallScore }}%
+              </div>
             </div>
           </div>
 
-          <div class="session-stats">
-            <span class="stat-mini"> ✅ {{ session.correctCount }} </span>
-            <span class="stat-mini stat-mini--warning">
+          <div class="session-stats-row">
+            <span class="stat-pill stat-pill--correct">
+              ✅ {{ session.correctCount }}
+            </span>
+            <span class="stat-pill stat-pill--warning">
               ⚠️ {{ session.warningCount }}
             </span>
-            <span class="stat-mini stat-mini--error">
+            <span class="stat-pill stat-pill--error">
               ❌ {{ session.errorCount }}
             </span>
-            <span class="stat-mini">
+            <span class="stat-pill stat-pill--time">
               ⏱️ {{ formatDuration(session.duration) }}
             </span>
           </div>
 
-          <div class="session-footer">
-            <span class="session-date">
-              {{ formatDate(session.timestamp) }}
-            </span>
+          <div class="session-actions">
             <NuxtLink
               :to="`/recite?surah=${session.surahNumber}`"
-              class="btn btn--ghost btn--sm"
+              class="btn btn--ghost btn--sm btn--full-width"
             >
-              {{ t("إعادة", "Retry") }}
+              {{ t("إعادة التلاوة", "Recite Again") }}
             </NuxtLink>
           </div>
         </article>
-      </div>
-    </section>
-
-    <!-- Coming Soon Notice -->
-    <section class="coming-soon">
-      <div class="coming-soon-card card">
-        <span class="coming-soon-icon">🚀</span>
-        <h3 class="coming-soon-title">
-          {{ t("قريباً", "Coming Soon") }}
-        </h3>
-        <p class="coming-soon-text">
-          {{
-            t(
-              "رسوم بيانية للتقدم، إنجازات، وإحصائيات مفصلة",
-              "Progress charts, achievements, and detailed statistics"
-            )
-          }}
-        </p>
       </div>
     </section>
   </div>
@@ -270,40 +297,142 @@ useHead({
 
 <style scoped>
 .progress-page {
-  padding-top: var(--space-4);
-  padding-bottom: var(--space-8);
+  padding-top: var(--space-8);
+  padding-bottom: var(--space-12);
+}
+
+.progress-header {
+  text-align: center;
+  margin-bottom: var(--space-8);
 }
 
 .page-title {
   font-size: var(--text-3xl);
-  margin-bottom: var(--space-8);
-  text-align: center;
+  margin-bottom: var(--space-2);
+}
+
+.page-subtitle {
+  color: var(--text-muted);
+  font-size: var(--text-lg);
 }
 
 /* Stats Overview */
 .stats-overview {
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--space-12);
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: 280px 1fr;
+  gap: var(--space-6);
+}
+
+/* Circular Chart Card */
+.stat-card--featured {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-xl);
+  padding: var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+}
+
+.circular-chart-wrapper {
+  position: relative;
+  width: 180px;
+  height: 180px;
+}
+
+.circular-chart {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.circle-bg {
+  fill: none;
+  stroke: var(--bg-tertiary);
+  stroke-width: 2.5;
+}
+
+.circle {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  animation: progress 1s ease-out forwards;
+}
+
+@keyframes progress {
+  0% {
+    stroke-dasharray: 0 100;
+  }
+}
+
+.circular-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.circular-value {
+  display: block;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.circular-label {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: var(--space-1);
+}
+
+/* Metrics Column */
+.stats-metrics-col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-4);
 }
 
 .stat-card {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-lg);
-  padding: var(--space-4);
-  text-align: center;
+  border-radius: var(--border-radius-xl);
+  padding: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  justify-content: space-between;
+  transition: transform var(--transition-fast);
+  box-shadow: var(--shadow-sm);
 }
 
-.stat-icon {
-  font-size: 1.5rem;
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-icon-bg {
+  width: 40px;
+  height: 40px;
+  background: var(--bg-tertiary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  margin-bottom: var(--space-3);
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
 }
 
 .stat-value {
@@ -315,16 +444,22 @@ useHead({
 .stat-label {
   font-size: var(--text-xs);
   color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: var(--space-1);
 }
 
 /* Sessions Section */
 .sessions-section {
-  margin-bottom: var(--space-8);
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .section-title {
   font-size: var(--text-xl);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--border-color);
 }
 
 .sessions-list {
@@ -334,73 +469,89 @@ useHead({
 }
 
 .session-card {
-  padding: var(--space-4);
+  padding: var(--space-5);
+  border-left: 4px solid transparent; /* Status indicator placeholder */
+  animation: fadeInUp 0.5s ease-out both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .session-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.session-date {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: var(--space-1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .session-surah {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
 }
 
 .surah-name {
-  font-weight: 600;
+  font-weight: 700;
   font-size: var(--text-lg);
+  color: var(--text-primary);
 }
 
 .ayah-range {
   font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-.session-score {
-  font-size: var(--text-2xl);
-  font-weight: 700;
-}
-
-.session-stats {
-  display: flex;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-3);
-}
-
-.stat-mini {
-  font-size: var(--text-sm);
   color: var(--text-secondary);
 }
 
-.stat-mini--warning {
-  color: var(--highlight-warning);
-}
-
-.stat-mini--error {
-  color: var(--highlight-error);
-}
-
-.session-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-color);
-}
-
-.session-date {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-.btn--sm {
+.score-badge {
   padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
+  border-radius: var(--border-radius-lg);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  min-width: 60px;
+  text-align: center;
+}
+
+.session-stats-row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  background: var(--bg-tertiary);
+  border-radius: var(--border-radius-full);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.session-actions {
+  border-top: 1px solid var(--border-color);
+  padding-top: var(--space-3);
+}
+
+.btn--full-width {
+  width: 100%;
+  justify-content: center;
 }
 
 /* Empty State */
@@ -409,13 +560,14 @@ useHead({
   padding: var(--space-12);
   background-color: var(--bg-card);
   border-radius: var(--border-radius-xl);
-  border: 1px solid var(--border-color);
+  border: 1px dashed var(--border-color);
 }
 
 .empty-icon {
   font-size: 4rem;
   display: block;
   margin-bottom: var(--space-4);
+  opacity: 0.3;
 }
 
 .empty-title {
@@ -428,46 +580,50 @@ useHead({
   margin-bottom: var(--space-6);
 }
 
-/* Coming Soon */
-.coming-soon {
-  margin-top: var(--space-8);
+/* Kids Mode Overrides */
+.progress-page--kids {
+  --color-primary: #8e44ad;
+  --bg-card: #fff;
 }
 
-.coming-soon-card {
-  text-align: center;
-  background: linear-gradient(
-    135deg,
-    var(--bg-secondary) 0%,
-    var(--bg-card) 100%
-  );
-  padding: var(--space-8);
+.progress-page--kids .page-title {
+  color: #d35400;
+  font-weight: 800;
 }
 
-.coming-soon-icon {
-  font-size: 2.5rem;
-  display: block;
-  margin-bottom: var(--space-4);
+.progress-page--kids .stat-card {
+  border: 2px solid #f1c40f;
+  box-shadow: 0 4px 8px rgba(241, 196, 15, 0.2);
 }
 
-.coming-soon-title {
-  font-size: var(--text-xl);
-  color: var(--color-primary);
-  margin-bottom: var(--space-2);
-}
-
-.coming-soon-text {
-  color: var(--text-secondary);
-  margin: 0;
+.progress-page--kids .score-badge {
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Responsive */
 @media (max-width: 768px) {
   .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
 
-  .session-stats {
-    gap: var(--space-3);
+  .stats-metrics-col {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .circular-chart-wrapper {
+    width: 140px;
+    height: 140px;
+  }
+
+  .circular-value {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-metrics-col {
+    grid-template-columns: 1fr;
   }
 }
 </style>
