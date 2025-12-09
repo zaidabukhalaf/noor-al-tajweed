@@ -277,6 +277,43 @@ useHead({
       </ol>
     </div>
 
+    <!-- Three.js Visual Preview -->
+    <div class="threejs-preview card">
+      <h3>{{ t("معاينة التأثيرات البصرية", "Visual Effects Preview") }}</h3>
+      <p class="preview-desc">
+        {{
+          t(
+            "المؤثرات تستجيب لمستوى الصوت",
+            "Effects respond to your voice level"
+          )
+        }}
+      </p>
+
+      <div class="preview-container">
+        <ThreeSceneCanvas
+          :is-active="isTestActive"
+          :intensity="settings.effectsIntensity"
+          :energy-level="audio.volumeLevel.value"
+          :tajweed-score="0.7"
+          :contained="true"
+        />
+      </div>
+
+      <!-- Debug Values -->
+      <div class="debug-values" v-if="isTestActive">
+        <div class="debug-item">
+          <span class="debug-label">Energy Level:</span>
+          <span class="debug-value"
+            >{{ (audio.volumeLevel.value * 100).toFixed(1) }}%</span
+          >
+        </div>
+        <div class="debug-item">
+          <span class="debug-label">Effects Intensity:</span>
+          <span class="debug-value">{{ settings.effectsIntensity }}</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Back Link -->
     <NuxtLink to="/recite" class="btn btn--ghost">
       {{ t("العودة للتلاوة", "Back to Recite") }}
@@ -440,5 +477,56 @@ useHead({
 .instructions li {
   margin-bottom: var(--space-2);
   color: var(--text-secondary);
+}
+
+/* Three.js Preview */
+.threejs-preview {
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.threejs-preview h3 {
+  font-size: var(--text-base);
+  margin-bottom: var(--space-2);
+}
+
+.preview-desc {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--space-4);
+}
+
+.preview-container {
+  position: relative;
+  height: 200px;
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.debug-values {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.debug-item {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.debug-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.debug-value {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  font-family: monospace;
+  color: var(--color-primary);
 }
 </style>

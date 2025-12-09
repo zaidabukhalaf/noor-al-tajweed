@@ -278,10 +278,12 @@ useHead({
 
 <template>
   <div class="recite-page">
-    <!-- Background Effects (Placeholder) -->
+    <!-- Three.js Background Effects -->
     <ThreeSceneCanvas
       :is-active="session.isActive.value"
       :intensity="settings.effectsIntensity"
+      :energy-level="audio.volumeLevel.value"
+      :tajweed-score="session.tajweedScore.value"
     />
 
     <div class="recite-content container">

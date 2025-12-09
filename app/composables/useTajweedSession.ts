@@ -291,6 +291,37 @@ export function useTajweedSession() {
     processedWords.value = 0;
   }
 
+  /**
+   * Compute real-time tajweed score (0-1) based on highlight status
+   * Used for visual feedback in ThreeSceneCanvas
+   */
+  const tajweedScore = computed(() => {
+    let correct = 0;
+    let warning = 0;
+    let error = 0;
+
+    highlights.value.forEach((highlight) => {
+      switch (highlight.status) {
+        case "correct":
+          correct++;
+          break;
+        case "warning":
+          warning++;
+          break;
+        case "error":
+          error++;
+          break;
+      }
+    });
+
+    const total = correct + warning + error;
+    if (total === 0) return 0.5; // Neutral score when no data
+
+    // Weighted score: correct=1, warning=0.5, error=0
+    const score = (correct * 1 + warning * 0.5 + error * 0) / total;
+    return score;
+  });
+
   return {
     // State
     isActive: readonly(isActive),
@@ -304,6 +335,7 @@ export function useTajweedSession() {
     startTime: readonly(startTime),
     totalWords: readonly(totalWords),
     processedWords: readonly(processedWords),
+    tajweedScore, // Real-time correctness ratio (0-1)
 
     // Methods
     startSession,
