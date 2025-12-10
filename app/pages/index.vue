@@ -22,15 +22,7 @@ const modes = computed<ModeOption[]>(() => [
     icon: "🎙️",
     color: "var(--color-primary)",
   },
-  {
-    id: "practice",
-    title: "Practice Mode",
-    titleAr: "وضع التدريب",
-    description: "Focus on specific tajwīd rules: ghunnah, madd, and more",
-    descriptionAr: "ركز على قواعد تجويد محددة: الغنة، المد، وغيرها",
-    icon: "📖",
-    color: "var(--color-accent)",
-  },
+
   {
     id: "kids",
     title: "Kids Mode",

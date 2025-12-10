@@ -115,7 +115,7 @@ export interface RecitationSession {
 export type ThemeMode = "light" | "dark" | "auto";
 export type EffectsIntensity = "off" | "low" | "normal";
 export type AppLanguage = "ar" | "en";
-export type RecitationMode = "free" | "practice" | "kids";
+export type RecitationMode = "free" | "kids";
 
 export interface AppSettings {
   theme: ThemeMode;
