@@ -1107,5 +1107,60 @@ useHead({
   .cta-verse {
     font-size: var(--text-2xl);
   }
+
+  /* Mode cards - touch friendly */
+  .mode-card {
+    min-height: auto;
+    padding: var(--space-5);
+  }
+
+  .mode-title {
+    font-size: var(--text-lg);
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .hero {
+    padding: var(--space-8) var(--space-3);
+  }
+
+  .hero-logo {
+    width: 56px;
+    height: 56px;
+  }
+
+  .title-ar {
+    font-size: 2rem;
+  }
+
+  .hero-tagline {
+    font-size: var(--text-base);
+  }
+
+  /* Hero CTA - large and visible */
+  .hero-cta .btn--lg {
+    width: 100%;
+    min-height: 56px;
+    font-size: var(--text-lg);
+  }
+
+  /* Mode cards - single column with good spacing */
+  .mode-card {
+    padding: var(--space-4);
+  }
+
+  .mode-icon {
+    font-size: 2rem;
+  }
+
+  /* CTA section */
+  .cta-card {
+    padding: var(--space-6);
+  }
+
+  .cta-verse {
+    font-size: var(--text-xl);
+  }
 }
 </style>

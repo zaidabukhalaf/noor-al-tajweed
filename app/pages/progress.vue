@@ -2,63 +2,18 @@
 /**
  * Progress Page (/progress/page.vue)
  *
- * Shows recitation history and progress tracking.
- * Displays past sessions with scores and breakdown.
+ * Shows recitation history and practice statistics.
+ * Uses localStorage-based session history for persistence.
+ *
+ * Note: Scores shown are from demo/mock analysis, not real tajweed evaluation.
  */
 
-import type { SessionSummary } from "~/types";
-
 const { t, settings } = useAppSettings();
-
-// Mock session history for Phase 1
-// In Phase 4, this will load from localStorage/IndexedDB
-const sessions = ref<SessionSummary[]>([
-  {
-    id: "1",
-    timestamp: new Date(Date.now() - 86400000), // Yesterday
-    surahNumber: 1,
-    surahName: "الفاتحة",
-    ayahRange: [1, 7],
-    totalWords: 29,
-    correctCount: 25,
-    warningCount: 3,
-    errorCount: 1,
-    ruleBreakdown: {} as any,
-    overallScore: 86,
-    duration: 45000,
-  },
-  {
-    id: "2",
-    timestamp: new Date(Date.now() - 172800000), // 2 days ago
-    surahNumber: 112,
-    surahName: "الإخلاص",
-    ayahRange: [1, 4],
-    totalWords: 15,
-    correctCount: 14,
-    warningCount: 1,
-    errorCount: 0,
-    ruleBreakdown: {} as any,
-    overallScore: 93,
-    duration: 30000,
-  },
-  {
-    id: "3",
-    timestamp: new Date(Date.now() - 259200000), // 3 days ago
-    surahNumber: 114,
-    surahName: "الناس",
-    ayahRange: [1, 6],
-    totalWords: 20,
-    correctCount: 16,
-    warningCount: 2,
-    errorCount: 2,
-    ruleBreakdown: {} as any,
-    overallScore: 80,
-    duration: 40000,
-  },
-]);
+const sessionHistory = useSessionHistory();
 
 // Format date
-function formatDate(date: Date): string {
+function formatDate(isoDate: string): string {
+  const date = new Date(isoDate);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const days = Math.floor(diff / 86400000);
@@ -81,47 +36,19 @@ function formatDate(date: Date): string {
   );
 }
 
-// Format duration
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-
-  if (minutes > 0) {
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
-  }
-  return `${seconds}s`;
+// Format time of day
+function formatTime(isoDate: string): string {
+  const date = new Date(isoDate);
+  return date.toLocaleTimeString(
+    settings.value.language === "ar" ? "ar" : "en",
+    { hour: "2-digit", minute: "2-digit" }
+  );
 }
 
-// Get score color
-function getScoreColor(score: number): string {
-  if (score >= 80) return "var(--highlight-correct)";
-  if (score >= 60) return "var(--highlight-warning)";
-  return "var(--highlight-error)";
-}
-
-// Calculate overall stats
-const overallStats = computed(() => {
-  const total = sessions.value.length;
-  if (total === 0) return null;
-
-  const avgScore = Math.round(
-    sessions.value.reduce((acc, s) => acc + s.overallScore, 0) / total
-  );
-  const totalWords = sessions.value.reduce((acc, s) => acc + s.totalWords, 0);
-  const totalCorrect = sessions.value.reduce(
-    (acc, s) => acc + s.correctCount,
-    0
-  );
-
-  return {
-    totalSessions: total,
-    avgScore,
-    totalWords,
-    totalCorrect,
-    accuracy: Math.round((totalCorrect / totalWords) * 100),
-  };
-});
+// Get stats
+const stats = computed(() => sessionHistory.getTotalStats());
+const streak = computed(() => sessionHistory.getPracticeStreak());
+const sessions = computed(() => sessionHistory.getSessions());
 
 // SEO
 useHead({
@@ -136,71 +63,49 @@ useHead({
   >
     <header class="progress-header">
       <h1 class="page-title">
-        {{ t("سجل التلاوات", "Recitation History") }}
+        {{ t("سجل التدريب", "Practice History") }}
       </h1>
       <p class="page-subtitle">
         {{
           t(
-            "تتبع تقدمك وتحسنك في التلاوة",
-            "Track your progress and improvement over time"
+            "تتبع جلسات التلاوة ومدة التدريب",
+            "Track your recitation sessions and practice time"
           )
         }}
       </p>
     </header>
 
-    <!-- Overall Stats -->
-    <section v-if="overallStats" class="stats-overview">
+    <!-- Summary Stats -->
+    <section class="stats-overview">
       <div class="stats-grid">
-        <!-- Average Score Card (Featured) -->
-        <div class="stat-card stat-card--featured">
-          <div class="circular-chart-wrapper">
-            <svg viewBox="0 0 36 36" class="circular-chart">
-              <path
-                class="circle-bg"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <path
-                class="circle"
-                :stroke-dasharray="overallStats.avgScore + ', 100'"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                :style="{ stroke: getScoreColor(overallStats.avgScore) }"
-              />
-            </svg>
-            <div class="circular-text">
-              <span class="circular-value">{{ overallStats.avgScore }}%</span>
-              <span class="circular-label">{{
-                t("متوسط الدرجة", "Avg Score")
-              }}</span>
-            </div>
+        <!-- Total Sessions -->
+        <div class="stat-card">
+          <div class="stat-icon">🎙️</div>
+          <div class="stat-content">
+            <span class="stat-value">{{ stats.totalSessions }}</span>
+            <span class="stat-label">{{ t("جلسة", "Sessions") }}</span>
           </div>
         </div>
 
-        <!-- Metric Cards -->
-        <div class="stats-metrics-col">
-          <div class="stat-card">
-            <div class="stat-icon-bg">📊</div>
-            <div class="stat-content">
-              <span class="stat-value">{{ overallStats.totalSessions }}</span>
-              <span class="stat-label">{{ t("جلسة", "Sessions") }}</span>
-            </div>
+        <!-- Total Time -->
+        <div class="stat-card">
+          <div class="stat-icon">⏱️</div>
+          <div class="stat-content">
+            <span class="stat-value">{{ stats.totalTimeFormatted }}</span>
+            <span class="stat-label">{{
+              t("وقت التدريب", "Practice Time")
+            }}</span>
           </div>
+        </div>
 
-          <div class="stat-card">
-            <div class="stat-icon-bg">📖</div>
-            <div class="stat-content">
-              <span class="stat-value">{{ overallStats.totalWords }}</span>
-              <span class="stat-label">{{ t("كلمة", "Words") }}</span>
-            </div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-icon-bg">✅</div>
-            <div class="stat-content">
-              <span class="stat-value" style="color: var(--highlight-correct)">
-                {{ overallStats.accuracy }}%
-              </span>
-              <span class="stat-label">{{ t("الدقة", "Accuracy") }}</span>
-            </div>
+        <!-- Streak -->
+        <div class="stat-card">
+          <div class="stat-icon">🔥</div>
+          <div class="stat-content">
+            <span class="stat-value">{{ streak }}</span>
+            <span class="stat-label">{{
+              t("أيام متتالية", "Day Streak")
+            }}</span>
           </div>
         </div>
       </div>
@@ -214,15 +119,15 @@ useHead({
 
       <!-- Empty State -->
       <div v-if="sessions.length === 0" class="empty-state">
-        <span class="empty-icon">📋</span>
+        <span class="empty-icon">📖</span>
         <h3 class="empty-title">
-          {{ t("لا توجد جلسات", "No sessions yet") }}
+          {{ t("لا توجد جلسات بعد", "No sessions yet") }}
         </h3>
         <p class="empty-text">
           {{
             t(
               "ابدأ تلاوتك الأولى لتظهر هنا",
-              "Start your first recitation to see it here"
+              "Complete your first recitation to see it here"
             )
           }}
         </p>
@@ -237,12 +142,13 @@ useHead({
           v-for="(session, index) in sessions"
           :key="session.id"
           class="session-card card"
-          :style="{ animationDelay: `${index * 100}ms` }"
+          :style="{ animationDelay: `${index * 50}ms` }"
         >
           <div class="session-header">
             <div class="session-info">
               <span class="session-date">
-                {{ formatDate(session.timestamp) }}
+                {{ formatDate(session.timestamp) }} •
+                {{ formatTime(session.timestamp) }}
               </span>
               <div class="session-surah">
                 <span class="surah-name">سورة {{ session.surahName }}</span>
@@ -253,38 +159,25 @@ useHead({
                 </span>
               </div>
             </div>
-            <div class="session-meta">
-              <div
-                class="score-badge"
-                :style="{
-                  backgroundColor: getScoreColor(session.overallScore),
-                  color: '#fff',
-                }"
-              >
-                {{ session.overallScore }}%
-              </div>
-            </div>
           </div>
 
-          <div class="session-stats-row">
-            <span class="stat-pill stat-pill--correct">
-              ✅ {{ session.correctCount }}
+          <div class="session-meta">
+            <span class="meta-item">
+              ⏱️ {{ sessionHistory.formatDuration(session.durationMs) }}
             </span>
-            <span class="stat-pill stat-pill--warning">
-              ⚠️ {{ session.warningCount }}
-            </span>
-            <span class="stat-pill stat-pill--error">
-              ❌ {{ session.errorCount }}
-            </span>
-            <span class="stat-pill stat-pill--time">
-              ⏱️ {{ formatDuration(session.duration) }}
+            <span
+              v-if="session.mockScore !== undefined"
+              class="meta-item demo-score"
+            >
+              📊 {{ session.mockScore }}%
+              <span class="demo-label">{{ t("تجريبي", "Demo") }}</span>
             </span>
           </div>
 
           <div class="session-actions">
             <NuxtLink
               :to="`/recite?surah=${session.surahNumber}`"
-              class="btn btn--ghost btn--sm btn--full-width"
+              class="btn btn--ghost btn--sm"
             >
               {{ t("إعادة التلاوة", "Recite Again") }}
             </NuxtLink>
@@ -292,6 +185,18 @@ useHead({
         </article>
       </div>
     </section>
+
+    <!-- Demo Notice -->
+    <aside v-if="sessions.length > 0" class="demo-notice">
+      <p>
+        {{
+          t(
+            "ℹ️ النتائج المعروضة تجريبية. سيتم إضافة تقييم التجويد الحقيقي قريباً.",
+            "ℹ️ Scores shown are demo values. Real tajweed evaluation coming soon."
+          )
+        }}
+      </p>
+    </aside>
   </div>
 </template>
 
@@ -299,6 +204,8 @@ useHead({
 .progress-page {
   padding-top: var(--space-8);
   padding-bottom: var(--space-12);
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .progress-header {
@@ -318,84 +225,10 @@ useHead({
 
 /* Stats Overview */
 .stats-overview {
-  margin-bottom: var(--space-12);
+  margin-bottom: var(--space-10);
 }
 
 .stats-grid {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: var(--space-6);
-}
-
-/* Circular Chart Card */
-.stat-card--featured {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius-xl);
-  padding: var(--space-6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-md);
-}
-
-.circular-chart-wrapper {
-  position: relative;
-  width: 180px;
-  height: 180px;
-}
-
-.circular-chart {
-  display: block;
-  margin: 0 auto;
-  max-width: 100%;
-  max-height: 100%;
-}
-
-.circle-bg {
-  fill: none;
-  stroke: var(--bg-tertiary);
-  stroke-width: 2.5;
-}
-
-.circle {
-  fill: none;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  animation: progress 1s ease-out forwards;
-}
-
-@keyframes progress {
-  0% {
-    stroke-dasharray: 0 100;
-  }
-}
-
-.circular-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-}
-
-.circular-value {
-  display: block;
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1;
-}
-
-.circular-label {
-  display: block;
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  margin-top: var(--space-1);
-}
-
-/* Metrics Column */
-.stats-metrics-col {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-4);
@@ -406,11 +239,9 @@ useHead({
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-xl);
   padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  transition: transform var(--transition-fast);
-  box-shadow: var(--shadow-sm);
+  text-align: center;
+  transition: transform var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .stat-card:hover {
@@ -418,16 +249,9 @@ useHead({
   box-shadow: var(--shadow-md);
 }
 
-.stat-icon-bg {
-  width: 40px;
-  height: 40px;
-  background: var(--bg-tertiary);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.25rem;
-  margin-bottom: var(--space-3);
+.stat-icon {
+  font-size: 2rem;
+  margin-bottom: var(--space-2);
 }
 
 .stat-content {
@@ -442,17 +266,14 @@ useHead({
 }
 
 .stat-label {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   margin-top: var(--space-1);
 }
 
 /* Sessions Section */
 .sessions-section {
-  max-width: 800px;
-  margin: 0 auto;
+  margin-bottom: var(--space-8);
 }
 
 .section-title {
@@ -470,14 +291,13 @@ useHead({
 
 .session-card {
   padding: var(--space-5);
-  border-left: 4px solid transparent; /* Status indicator placeholder */
-  animation: fadeInUp 0.5s ease-out both;
+  animation: fadeInUp 0.4s ease-out both;
 }
 
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -486,10 +306,7 @@ useHead({
 }
 
 .session-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 
 .session-date {
@@ -497,8 +314,6 @@ useHead({
   color: var(--text-muted);
   display: block;
   margin-bottom: var(--space-1);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .session-surah {
@@ -517,41 +332,37 @@ useHead({
   color: var(--text-secondary);
 }
 
-.score-badge {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--border-radius-lg);
-  font-weight: 700;
-  font-size: var(--text-lg);
-  min-width: 60px;
-  text-align: center;
-}
-
-.session-stats-row {
+.session-meta {
   display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
+  gap: var(--space-4);
   margin-bottom: var(--space-4);
+  flex-wrap: wrap;
 }
 
-.stat-pill {
-  display: inline-flex;
+.meta-item {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  display: flex;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  background: var(--bg-tertiary);
-  border-radius: var(--border-radius-full);
+}
+
+.demo-score {
+  position: relative;
+}
+
+.demo-label {
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: var(--border-radius-sm);
+  margin-left: var(--space-1);
 }
 
 .session-actions {
-  border-top: 1px solid var(--border-color);
   padding-top: var(--space-3);
-}
-
-.btn--full-width {
-  width: 100%;
-  justify-content: center;
+  border-top: 1px solid var(--border-color);
 }
 
 /* Empty State */
@@ -567,7 +378,7 @@ useHead({
   font-size: 4rem;
   display: block;
   margin-bottom: var(--space-4);
-  opacity: 0.3;
+  opacity: 0.4;
 }
 
 .empty-title {
@@ -580,10 +391,19 @@ useHead({
   margin-bottom: var(--space-6);
 }
 
-/* Kids Mode Overrides */
+/* Demo Notice */
+.demo-notice {
+  text-align: center;
+  padding: var(--space-4);
+  background: var(--bg-tertiary);
+  border-radius: var(--border-radius-lg);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* Kids Mode */
 .progress-page--kids {
   --color-primary: #8e44ad;
-  --bg-card: #fff;
 }
 
 .progress-page--kids .page-title {
@@ -593,37 +413,33 @@ useHead({
 
 .progress-page--kids .stat-card {
   border: 2px solid #f1c40f;
-  box-shadow: 0 4px 8px rgba(241, 196, 15, 0.2);
 }
 
-.progress-page--kids .score-badge {
-  border: 2px solid #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Responsive */
-@media (max-width: 768px) {
+/* Mobile Responsive */
+@media (max-width: 640px) {
   .stats-grid {
     grid-template-columns: 1fr;
+    gap: var(--space-3);
   }
 
-  .stats-metrics-col {
-    grid-template-columns: repeat(3, 1fr);
+  .stat-card {
+    flex-direction: row;
+    text-align: left;
+    gap: var(--space-4);
   }
 
-  .circular-chart-wrapper {
-    width: 140px;
-    height: 140px;
+  .stat-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0;
   }
 
-  .circular-value {
-    font-size: 2rem;
+  .stat-content {
+    flex: 1;
   }
-}
 
-@media (max-width: 480px) {
-  .stats-metrics-col {
-    grid-template-columns: 1fr;
+  .session-meta {
+    flex-direction: column;
+    gap: var(--space-2);
   }
 }
 </style>

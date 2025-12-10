@@ -25,6 +25,9 @@ const media = useMediaDevices();
 // Audio processing
 const audio = useAudioStream();
 
+// Session history (progress persistence)
+const sessionHistory = useSessionHistory();
+
 // Local state
 const selectedSurahNumber = ref(Number(route.query.surah) || 1);
 const showSummaryModal = ref(false);
@@ -191,6 +194,15 @@ function handleStop() {
     summary.surahName = currentSurah.value?.nameArabic || "";
     sessionSummary.value = summary;
     showSummaryModal.value = true;
+
+    // Save to session history for progress tracking
+    sessionHistory.addSession({
+      surahNumber: summary.surahNumber,
+      surahName: summary.surahName,
+      ayahRange: summary.ayahRange,
+      durationMs: summary.duration,
+      mockScore: summary.overallScore,
+    });
   }
 }
 
@@ -875,33 +887,105 @@ useHead({
 
 @media (max-width: 768px) {
   .recite-layout {
-    gap: var(--space-4);
+    gap: var(--space-3);
+    padding: var(--space-3);
   }
 
+  /* Hide sidebar on mobile - move to bottom or collapsible */
   .recite-sidebar {
     flex-direction: column;
+    order: 1; /* Move below main content */
   }
 
   .sidebar-card {
     min-width: auto;
+    padding: var(--space-3);
   }
 
+  /* Collapsible sidebar cards on mobile via details/summary pattern */
+  .sidebar-card--legend {
+    display: none; /* Hide legend by default on mobile */
+  }
+
+  /* Main Qur'an card - optimized for mobile reading */
   .quran-card {
-    padding: var(--space-4);
+    padding: var(--space-4) var(--space-3);
+    border-radius: var(--border-radius-lg);
+    min-height: 50vh; /* Ensure enough reading space */
+  }
+
+  .quran-header {
+    margin-bottom: var(--space-4);
   }
 
   .surah-title-ar {
     font-size: var(--text-2xl);
   }
 
+  .surah-title-en {
+    font-size: var(--text-sm);
+  }
+
+  .surah-meta {
+    font-size: var(--text-xs);
+  }
+
+  /* Quran text - comfortable mobile reading */
+  .quran-text-wrapper {
+    font-size: clamp(1.3rem, 5vw, 1.75rem);
+    line-height: 2.2;
+    padding: var(--space-4) 0;
+  }
+
+  /* Ayah navigation - thumb-friendly */
   .ayah-nav {
     flex-wrap: wrap;
     gap: var(--space-2);
+    justify-content: center;
   }
 
   .ayah-nav-btn {
-    font-size: var(--text-xs);
-    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+    padding: var(--space-3) var(--space-4);
+    min-height: 48px; /* Touch-friendly */
+    min-width: 100px;
+  }
+
+  .ayah-badge {
+    font-size: var(--text-base);
+    padding: var(--space-2) var(--space-4);
+  }
+
+  /* Controls footer - safe bottom margin */
+  .controls-footer {
+    padding: var(--space-4) var(--space-3);
+    padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Small phones - extra adjustments */
+@media (max-width: 480px) {
+  .recite-layout {
+    padding: var(--space-2);
+  }
+
+  .quran-card {
+    padding: var(--space-3) var(--space-2);
+  }
+
+  /* Hide session info card on very small screens during active session */
+  .sidebar-card:not(:first-child) {
+    display: none;
+  }
+
+  /* Ensure Start button is large and centered */
+  .controls-footer {
+    text-align: center;
+  }
+
+  .ayah-nav-btn {
+    flex: 1;
+    min-width: auto;
   }
 }
 /* ==========================================

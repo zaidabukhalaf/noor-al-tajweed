@@ -194,20 +194,63 @@ const mainButtonIcon = computed(() => {
   font-size: var(--text-xs);
 }
 
-/* Responsive */
+/* Responsive - Mobile */
 @media (max-width: 768px) {
   .controls {
-    padding: var(--space-3);
+    padding: var(--space-4);
+    border-radius: var(--border-radius-lg);
   }
 
   .controls-main {
     flex-direction: column;
     align-items: stretch;
+    gap: var(--space-3);
   }
 
   .control-btn--main {
     width: 100%;
     justify-content: center;
+    min-height: 56px; /* Large touch target */
+    font-size: var(--text-lg);
+  }
+
+  .control-btn--main .control-icon {
+    font-size: 1.75rem;
+  }
+
+  /* Secondary controls - row with larger tap targets */
+  .controls-secondary {
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .controls-secondary .control-btn {
+    min-width: 48px;
+    min-height: 48px;
+    padding: var(--space-2);
+  }
+
+  .control-label-small {
+    display: none; /* Hide labels on mobile, icons are clear */
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .controls {
+    padding: var(--space-3);
+    gap: var(--space-3);
+  }
+
+  .control-btn--main {
+    min-height: 60px;
+    font-size: var(--text-xl);
+    gap: var(--space-2);
+  }
+
+  .control-btn--main .control-icon {
+    font-size: 2rem;
   }
 }
 </style>
