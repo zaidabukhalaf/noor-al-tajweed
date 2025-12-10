@@ -139,7 +139,7 @@ export default defineEventHandler(async (event) => {
       warningCount,
       errorCount,
       totalDurationMs:
-        timings.length > 0 ? timings[timings.length - 1].endTimeMs : 0,
+        timings.length > 0 ? timings[timings.length - 1]?.endTimeMs ?? 0 : 0,
     },
   };
 });

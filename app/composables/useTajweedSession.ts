@@ -2,39 +2,67 @@
  * useTajweedSession Composable
  *
  * Central session state manager for recitation sessions.
- * Handles current position, highlights, and session lifecycle.
+ * Handles current position, highlights, analysis, and session lifecycle.
+ *
+ * Phase 4: Integrates with structured TajweedAnalysisResponse
+ *
+ * @module composables/useTajweedSession
  */
 
 import type {
   WordHighlight,
   HighlightStatus,
-  TajweedTokenFeedback,
-  SessionSummary,
   TajweedRule,
+  SessionSummary,
 } from "~/types";
 
+import type {
+  TajweedAnalysisResponse,
+  TajweedWordFeedback,
+  TajweedRuleId,
+} from "~/types/tajweed";
+
 export function useTajweedSession() {
-  // Session state
+  // ==========================================
+  // Session State
+  // ==========================================
+
   const isActive = ref(false);
   const isPaused = ref(false);
 
   // Current position
-  const currentSurahNumber = ref(1); // Default to Al-Fatihah
+  const currentSurahNumber = ref(1);
   const ayahRange = ref<[number, number]>([1, 7]);
-  const currentAyahIndex = ref(0); // Index within the ayah range
-  const currentWordIndex = ref(-1); // -1 means not started
+  const currentAyahIndex = ref(0);
+  const currentWordIndex = ref(-1);
 
   // Session timing
   const startTime = ref<Date | null>(null);
   const endTime = ref<Date | null>(null);
 
   // Word highlights: Map<globalWordIndex, WordHighlight>
-  // globalWordIndex = ayahIndex * 1000 + wordIndex (to create unique keys)
   const highlights = ref<Map<number, WordHighlight>>(new Map());
 
   // Statistics
   const totalWords = ref(0);
   const processedWords = ref(0);
+
+  // ==========================================
+  // Phase 4: Structured Analysis State
+  // ==========================================
+
+  /** Current analysis response from the structured API */
+  const currentAnalysis = ref<TajweedAnalysisResponse | null>(null);
+
+  /** Loading state for analysis fetch */
+  const isAnalyzing = ref(false);
+
+  /** Error from analysis fetch */
+  const analysisError = ref<string | null>(null);
+
+  // ==========================================
+  // Utility Functions
+  // ==========================================
 
   /**
    * Create a unique key for a word position
@@ -44,17 +72,51 @@ export function useTajweedSession() {
   }
 
   /**
+   * Convert TajweedRuleId to TajweedRule (legacy type compatibility)
+   */
+  function convertRuleId(ruleId: TajweedRuleId): TajweedRule {
+    // Map new rule IDs to legacy enum
+    const mapping: Record<string, TajweedRule> = {
+      ghunnah: "ghunnah",
+      madd_tabii: "madd_tabii",
+      madd_lazim: "madd_lazim",
+      madd_muttasil: "madd_muttasil",
+      madd_munfasil: "madd_munfasil",
+      madd_arid: "madd_tabii", // fallback
+      madd_lin: "madd_tabii", // fallback
+      idgham_bi_ghunnah: "idgham_bi_ghunnah",
+      idgham_bila_ghunnah: "idgham_bila_ghunnah",
+      ikhfa: "ikhfa",
+      ikhfa_shafawi: "ikhfa", // fallback
+      iqlab: "iqlab",
+      izhar: "izhar",
+      izhar_shafawi: "izhar", // fallback
+      qalqalah: "qalqalah",
+      makhraj: "makhraj",
+    };
+    return mapping[ruleId] || "makhraj";
+  }
+
+  // ==========================================
+  // Session Lifecycle
+  // ==========================================
+
+  /**
    * Start a new recitation session
    */
   function startSession(surahNumber: number, range?: [number, number]) {
     // Reset state
     highlights.value.clear();
     currentSurahNumber.value = surahNumber;
-    ayahRange.value = range ?? [1, 7]; // Default to full surah for short ones
+    ayahRange.value = range ?? [1, 7];
     currentAyahIndex.value = 0;
     currentWordIndex.value = -1;
     totalWords.value = 0;
     processedWords.value = 0;
+
+    // Reset analysis state
+    currentAnalysis.value = null;
+    analysisError.value = null;
 
     // Start timing
     startTime.value = new Date();
@@ -92,6 +154,158 @@ export function useTajweedSession() {
     return generateSummary();
   }
 
+  // ==========================================
+  // Phase 4: Structured Analysis Integration
+  // ==========================================
+
+  /**
+   * Fetch structured tajweed analysis for an ayah.
+   * This calls the new /api/tajweed/analyze-structured endpoint.
+   */
+  async function fetchStructuredAnalysis(
+    surahNumber: number,
+    ayahNumber: number,
+    ayahText: string
+  ): Promise<TajweedAnalysisResponse | null> {
+    isAnalyzing.value = true;
+    analysisError.value = null;
+
+    try {
+      const response = await $fetch<TajweedAnalysisResponse>(
+        "/api/tajweed/analyze-structured",
+        {
+          method: "POST",
+          body: {
+            surahNumber,
+            ayahNumber,
+            ayahText,
+          },
+        }
+      );
+
+      currentAnalysis.value = response;
+      return response;
+    } catch (err) {
+      const e = err as Error;
+      analysisError.value = `Analysis error: ${e.message}`;
+      console.error("Tajweed analysis failed:", e);
+      return null;
+    } finally {
+      isAnalyzing.value = false;
+    }
+  }
+
+  /**
+   * Apply analysis feedback to highlights.
+   * Converts TajweedAnalysisResponse to the highlights Map.
+   */
+  function applyAnalysisToHighlights(analysis: TajweedAnalysisResponse) {
+    const ayahIndex = currentAyahIndex.value;
+
+    for (const fb of analysis.feedback) {
+      const key = getWordKey(ayahIndex, fb.wordIndex);
+
+      // Convert status
+      const status: HighlightStatus =
+        fb.status === "correct"
+          ? "correct"
+          : fb.status === "warning"
+          ? "warning"
+          : "error";
+
+      // Convert rules
+      const rules: TajweedRule[] = [];
+      if (fb.rulesApplied) {
+        for (const ruleId of fb.rulesApplied) {
+          rules.push(convertRuleId(ruleId));
+        }
+      }
+
+      // Build message from issues
+      const messages = fb.issues.map((issue) => issue.messageAr);
+      const message = messages.length > 0 ? messages.join("؛ ") : undefined;
+
+      highlights.value.set(key, {
+        status,
+        rules: rules.length > 0 ? rules : undefined,
+        message,
+      });
+    }
+
+    // Update stats
+    totalWords.value = analysis.summary.totalWords;
+    processedWords.value = analysis.summary.totalWords;
+  }
+
+  /**
+   * Start recitation for an ayah using the structured analysis.
+   * Returns a timing runner that can be used to drive word-by-word highlighting.
+   */
+  function createAnalysisTimingRunner(
+    analysis: TajweedAnalysisResponse,
+    onWordStart: (wordIndex: number) => void,
+    onWordEnd: (wordIndex: number, feedback: TajweedWordFeedback) => void,
+    onComplete: () => void
+  ) {
+    let timeouts: ReturnType<typeof setTimeout>[] = [];
+    let isRunning = false;
+
+    function start() {
+      if (isRunning) return;
+      isRunning = true;
+
+      // Use alignments for timing
+      for (const alignment of analysis.alignments) {
+        const wordIndex = alignment.quranWordIndex;
+        const feedback = analysis.feedback[wordIndex];
+
+        // Word start
+        const startTimeout = setTimeout(() => {
+          if (isRunning) {
+            onWordStart(wordIndex);
+          }
+        }, alignment.startTimeMs);
+
+        // Word end
+        const endTimeout = setTimeout(() => {
+          if (isRunning && feedback) {
+            onWordEnd(wordIndex, feedback);
+          }
+        }, alignment.endTimeMs);
+
+        timeouts.push(startTimeout, endTimeout);
+      }
+
+      // Schedule completion
+      if (analysis.alignments.length > 0) {
+        const lastAlignment =
+          analysis.alignments[analysis.alignments.length - 1]!;
+        const completeTimeout = setTimeout(() => {
+          if (isRunning) {
+            isRunning = false;
+            onComplete();
+          }
+        }, lastAlignment.endTimeMs + 500);
+
+        timeouts.push(completeTimeout);
+      }
+    }
+
+    function stop() {
+      isRunning = false;
+      for (const timeout of timeouts) {
+        clearTimeout(timeout);
+      }
+      timeouts = [];
+    }
+
+    return { start, stop, isRunning: () => isRunning };
+  }
+
+  // ==========================================
+  // Word Highlighting
+  // ==========================================
+
   /**
    * Update the current word being recited
    */
@@ -104,7 +318,6 @@ export function useTajweedSession() {
       );
       const prevHighlight = highlights.value.get(prevKey);
       if (prevHighlight && prevHighlight.status === "current") {
-        // Keep the highlight status from AI feedback, or default to idle
         if (!prevHighlight.rules?.length) {
           highlights.value.set(prevKey, { ...prevHighlight, status: "idle" });
         }
@@ -124,34 +337,7 @@ export function useTajweedSession() {
   }
 
   /**
-   * Update highlights based on AI feedback
-   */
-  function updateHighlights(feedback: TajweedTokenFeedback[]) {
-    for (const token of feedback) {
-      const key = getWordKey(currentAyahIndex.value, token.wordIndex);
-
-      // Determine status based on errors
-      let status: HighlightStatus = "correct";
-      if (token.errors.length > 0) {
-        const hasMajor = token.errors.some((e) => e.severity === "major");
-        status = hasMajor ? "error" : "warning";
-      }
-
-      highlights.value.set(key, {
-        status,
-        rules: token.rulesApplied,
-        message:
-          token.errors.length > 0
-            ? token.errors.map((e) => e.message).join("; ")
-            : undefined,
-      });
-
-      processedWords.value++;
-    }
-  }
-
-  /**
-   * Set a specific word's highlight status (for demo/testing)
+   * Set a specific word's highlight status
    */
   function setWordHighlight(
     ayahIndex: number,
@@ -175,6 +361,10 @@ export function useTajweedSession() {
     return highlights.value.get(key);
   }
 
+  // ==========================================
+  // Navigation
+  // ==========================================
+
   /**
    * Move to next ayah
    */
@@ -185,6 +375,7 @@ export function useTajweedSession() {
     if (currentAyahIndex.value < maxIndex) {
       currentAyahIndex.value++;
       currentWordIndex.value = -1;
+      currentAnalysis.value = null; // Clear analysis for new ayah
       return true;
     }
     return false;
@@ -197,6 +388,7 @@ export function useTajweedSession() {
     if (currentAyahIndex.value > 0) {
       currentAyahIndex.value--;
       currentWordIndex.value = -1;
+      currentAnalysis.value = null; // Clear analysis for new ayah
       return true;
     }
     return false;
@@ -209,8 +401,13 @@ export function useTajweedSession() {
     return ayahRange.value[0] + currentAyahIndex.value;
   });
 
+  // ==========================================
+  // Summary Generation
+  // ==========================================
+
   /**
    * Generate session summary
+   * Always computes from highlights which accumulate across all ayat
    */
   function generateSummary(): SessionSummary {
     let correctCount = 0;
@@ -221,6 +418,7 @@ export function useTajweedSession() {
       { correct: number; errors: number }
     > = {} as any;
 
+    // Compute from highlights - this accumulates across all ayat
     highlights.value.forEach((highlight) => {
       switch (highlight.status) {
         case "correct":
@@ -232,9 +430,9 @@ export function useTajweedSession() {
         case "error":
           errorCount++;
           break;
+        // "current" and "idle" are not counted as they're transitional
       }
 
-      // Track rule breakdown
       if (highlight.rules) {
         for (const rule of highlight.rules) {
           if (!ruleBreakdown[rule]) {
@@ -242,7 +440,10 @@ export function useTajweedSession() {
           }
           if (highlight.status === "correct") {
             ruleBreakdown[rule].correct++;
-          } else {
+          } else if (
+            highlight.status === "warning" ||
+            highlight.status === "error"
+          ) {
             ruleBreakdown[rule].errors++;
           }
         }
@@ -250,8 +451,14 @@ export function useTajweedSession() {
     });
 
     const total = correctCount + warningCount + errorCount;
+
+    // Score formula: correct=100%, warning=50%, error=0%
     const overallScore =
-      total > 0 ? Math.round((correctCount / total) * 100) : 0;
+      total > 0
+        ? Math.round(
+            (correctCount * 100 + warningCount * 50 + errorCount * 0) / total
+          )
+        : 0;
 
     const duration =
       endTime.value && startTime.value
@@ -262,7 +469,7 @@ export function useTajweedSession() {
       id: crypto.randomUUID(),
       timestamp: startTime.value ?? new Date(),
       surahNumber: currentSurahNumber.value,
-      surahName: "", // Will be filled by caller
+      surahName: "",
       ayahRange: ayahRange.value,
       totalWords: total,
       correctCount,
@@ -289,13 +496,25 @@ export function useTajweedSession() {
     endTime.value = null;
     totalWords.value = 0;
     processedWords.value = 0;
+    currentAnalysis.value = null;
+    analysisError.value = null;
   }
 
+  // ==========================================
+  // Computed Properties
+  // ==========================================
+
   /**
-   * Compute real-time tajweed score (0-1) based on highlight status
-   * Used for visual feedback in ThreeSceneCanvas
+   * Real-time tajweed score (0-1).
+   * Uses analysis summary if available, otherwise computes from highlights.
    */
   const tajweedScore = computed(() => {
+    // Use structured analysis score if available
+    if (currentAnalysis.value) {
+      return currentAnalysis.value.summary.overallScore / 100;
+    }
+
+    // Fallback: compute from highlights
     let correct = 0;
     let warning = 0;
     let error = 0;
@@ -318,12 +537,33 @@ export function useTajweedSession() {
     if (total === 0) return 0.5; // Neutral score when no data
 
     // Weighted score: correct=1, warning=0.5, error=0
-    const score = (correct * 1 + warning * 0.5 + error * 0) / total;
-    return score;
+    return (correct * 1 + warning * 0.5 + error * 0) / total;
   });
 
+  /**
+   * Current word feedback from analysis (for tooltips)
+   */
+  const currentWordFeedback = computed(() => {
+    if (!currentAnalysis.value || currentWordIndex.value < 0) {
+      return null;
+    }
+    return currentAnalysis.value.feedback[currentWordIndex.value] ?? null;
+  });
+
+  /**
+   * Get feedback for a specific word index
+   */
+  function getWordFeedback(wordIndex: number): TajweedWordFeedback | null {
+    if (!currentAnalysis.value) return null;
+    return currentAnalysis.value.feedback[wordIndex] ?? null;
+  }
+
+  // ==========================================
+  // Exports
+  // ==========================================
+
   return {
-    // State
+    // Session State
     isActive: readonly(isActive),
     isPaused: readonly(isPaused),
     currentSurahNumber: readonly(currentSurahNumber),
@@ -335,19 +575,36 @@ export function useTajweedSession() {
     startTime: readonly(startTime),
     totalWords: readonly(totalWords),
     processedWords: readonly(processedWords),
-    tajweedScore, // Real-time correctness ratio (0-1)
 
-    // Methods
+    // Phase 4: Structured Analysis
+    currentAnalysis: readonly(currentAnalysis),
+    isAnalyzing: readonly(isAnalyzing),
+    analysisError: readonly(analysisError),
+    currentWordFeedback,
+
+    // Computed
+    tajweedScore,
+
+    // Session Lifecycle
     startSession,
     pauseSession,
     resumeSession,
     stopSession,
+    resetSession,
+
+    // Phase 4: Analysis Methods
+    fetchStructuredAnalysis,
+    applyAnalysisToHighlights,
+    createAnalysisTimingRunner,
+    getWordFeedback,
+
+    // Highlighting
     setCurrentWord,
-    updateHighlights,
     setWordHighlight,
     getWordHighlight,
+
+    // Navigation
     nextAyah,
     prevAyah,
-    resetSession,
   };
 }

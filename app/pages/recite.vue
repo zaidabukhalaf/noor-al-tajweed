@@ -2,21 +2,21 @@
 /**
  * Recite Page (/recite/page.vue)
  *
- * Main recitation session UI with Phase 2 audio integration.
+ * Main recitation session UI with Phase 4 structured analysis integration.
  * - Captures audio from microphone
- * - Fetches mock timing from /api/tajweed/analyze
- * - Drives word-by-word highlighting in real time
+ * - Fetches structured analysis from /api/tajweed/analyze-structured
+ * - Drives word-by-word highlighting with detailed feedback
  */
 
 import type { SessionSummary, Surah, Ayah, HighlightStatus } from "~/types";
-import type { MockTajweedTiming } from "~/composables/useAudioStream";
+import type { TajweedWordFeedback } from "~/types/tajweed";
 
 const route = useRoute();
 const router = useRouter();
 const { t, settings } = useAppSettings();
 const { getSurah, getAyat, surahList, tokenizeAyah } = useQuranData();
 
-// Session composable
+// Session composable (Phase 4)
 const session = useTajweedSession();
 
 // Media devices (mic/camera)
@@ -31,8 +31,9 @@ const showSummaryModal = ref(false);
 const sessionSummary = ref<SessionSummary | null>(null);
 const showLegend = ref(true);
 
-// Timing runner reference
-let timingRunner: ReturnType<typeof audio.createTimingRunner> | null = null;
+// Timing runner reference (Phase 4: uses analysis-based runner)
+let timingRunner: ReturnType<typeof session.createAnalysisTimingRunner> | null =
+  null;
 
 // Get current surah data
 const currentSurah = computed<Surah | undefined>(() => {
@@ -68,10 +69,7 @@ function onSurahChange(event: Event) {
 
 /**
  * Start recitation session
- * 1. Request mic permission
- * 2. Start audio processing
- * 3. Fetch mock timing from API
- * 4. Start timing runner for highlighting
+ * Phase 4: Uses structured analysis API
  */
 async function handleStart() {
   const surah = currentSurah.value;
@@ -85,12 +83,10 @@ async function handleStart() {
   if (!stream) {
     // Mic permission denied - continue with demo mode
     console.warn("Mic permission denied, running in demo mode");
-    startAyahRecitation();
-    return;
+  } else {
+    // Start audio processing for volume visualization
+    audio.startProcessing(stream);
   }
-
-  // Start audio processing
-  audio.startProcessing(stream);
 
   // Start recitation for current ayah
   await startAyahRecitation();
@@ -98,7 +94,7 @@ async function handleStart() {
 
 /**
  * Start recitation for the current ayah
- * Fetches timing from mock API and starts the timing runner
+ * Phase 4: Fetches structured analysis and uses analysis-based timing
  */
 async function startAyahRecitation() {
   const ayah = currentAyah.value;
@@ -108,43 +104,57 @@ async function startAyahRecitation() {
   const wordCount = currentWordCount.value;
   if (wordCount === 0) return;
 
-  // Fetch mock timing from API
-  const timings = await audio.fetchMockTiming(
+  // Fetch structured analysis from the new API
+  const analysis = await session.fetchStructuredAnalysis(
     selectedSurahNumber.value,
     session.currentAyahNumber.value,
-    wordCount
+    ayah.text
   );
 
-  if (timings.length === 0) {
-    console.error("No timings received from API");
+  if (!analysis) {
+    console.error("No analysis received from API");
     return;
   }
 
-  // Create timing runner
-  timingRunner = audio.createTimingRunner(
-    timings,
+  // Create timing runner from analysis
+  timingRunner = session.createAnalysisTimingRunner(
+    analysis,
     // On word start
-    (timing: MockTajweedTiming) => {
+    (wordIndex: number) => {
       if (session.isPaused.value) return;
-
-      // Set current word
-      session.setCurrentWord(session.currentAyahIndex.value, timing.wordIndex);
+      session.setCurrentWord(session.currentAyahIndex.value, wordIndex);
     },
-    // On word end
-    (timing: MockTajweedTiming) => {
+    // On word end - apply feedback
+    (wordIndex: number, feedback: TajweedWordFeedback) => {
       if (session.isPaused.value) return;
 
-      // Apply the feedback status to the word
+      // Convert status to HighlightStatus
+      const status: HighlightStatus =
+        feedback.status === "correct"
+          ? "correct"
+          : feedback.status === "warning"
+          ? "warning"
+          : "error";
+
+      // Build message from issues
+      const message =
+        feedback.issues.length > 0
+          ? feedback.issues.map((i) => i.messageAr).join("؛ ")
+          : undefined;
+
       session.setWordHighlight(
         session.currentAyahIndex.value,
-        timing.wordIndex,
-        timing.status as HighlightStatus,
-        timing.rulesApplied as any,
-        timing.message
+        wordIndex,
+        status,
+        undefined, // Rules handled internally
+        message
       );
     },
     // On complete
     async () => {
+      // Apply full analysis to highlights
+      session.applyAnalysisToHighlights(analysis);
+
       // Check if there are more ayat
       if (session.nextAyah()) {
         // Start next ayah after a brief pause

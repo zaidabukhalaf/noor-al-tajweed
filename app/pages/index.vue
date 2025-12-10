@@ -8,7 +8,7 @@
 
 import type { ModeOption, RecitationMode } from "~/types";
 
-const { t, settings } = useAppSettings();
+const { t, settings, updateSetting } = useAppSettings();
 const router = useRouter();
 
 // Mode options with enhanced styling
@@ -74,7 +74,7 @@ const steps = computed(() => [
 function selectMode(mode: RecitationMode) {
   if (mode === "kids") {
     // Enable kids mode in settings
-    settings.kidsMode = true;
+    updateSetting("kidsMode", true);
   }
   router.push({ path: "/recite", query: { mode } });
 }

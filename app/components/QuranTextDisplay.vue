@@ -15,8 +15,15 @@ interface Props {
   ayahNumber?: number;
   /** Current ayah index (for highlight lookup) */
   ayahIndex?: number;
-  /** Map of wordIndex -> highlight state */
-  highlights?: Map<number, WordHighlight>;
+  /** Map of wordIndex -> highlight state (ReadonlyMap from composable) */
+  highlights?: ReadonlyMap<
+    number,
+    {
+      readonly status: HighlightStatus;
+      readonly rules?: readonly string[];
+      readonly message?: string;
+    }
+  >;
   /** Font size override */
   fontSize?: number;
   /** Kids mode - larger text */
