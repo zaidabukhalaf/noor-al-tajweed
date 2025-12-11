@@ -173,7 +173,7 @@ useHead({
         <!-- Main Title -->
         <h1 class="hero-title">
           <span class="title-ar">نور التجويد</span>
-          <span class="title-en">Noor Tajweed</span>
+          <span class="title-en" style="margin-top: 0.75rem">Noor Tajweed</span>
         </h1>
 
         <!-- Tagline -->

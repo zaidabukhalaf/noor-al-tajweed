@@ -59,4 +59,9 @@ export default defineNuxtConfig({
       appNameEn: "Noor Tajweed",
     },
   },
+
+  // Cloudflare Pages deployment
+  nitro: {
+    preset: "cloudflare-pages",
+  },
 });

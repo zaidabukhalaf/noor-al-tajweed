@@ -306,7 +306,7 @@ const navItems = computed(() => [
   }
 
   .main {
-    padding-bottom: calc(var(--space-16) + var(--space-8));
+    /* padding-bottom: calc(var(--space-16) + var(--space-8)); */
   }
 
   .header-title {
